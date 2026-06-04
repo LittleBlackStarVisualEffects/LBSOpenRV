@@ -97,14 +97,22 @@ def prepare() -> None:
             return f"{version_str}-based-macos-universal.7z"
 
         def get_fallback_clang_filename_suffix(version):
+            # Apple clang reports its own version (e.g. 21.0.0) which does not
+            # necessarily match a libclang release published on the Qt mirror.
+            # Map the major.minor to a known-good prebuilt available on the mirror.
             major_minor_version_str = ".".join(version[:2])
-            if major_minor_version_str == "14.0":
-                return "14.0.3-based-macos-universal.7z"
-            elif major_minor_version_str == "15.0":
-                return "15.0.0-based-macos-universal.7z"
-            elif major_minor_version_str == "17.0":
-                return "17.0.1-based-macos-universal.7z"
-            return None
+            known_good = {
+                "14.0": "14.0.3-based-macos-universal.7z",
+                "15.0": "15.0.0-based-macos-universal.7z",
+                "16.0": "16.0.2-based-macos-universal.7z",
+                "17.0": "17.0.1-based-macos-universal.7z",
+                "18.0": "18.1.7-based-macos-universal.7z",
+                "19.0": "19.1.6-based-macos-universal.7z",
+                "20.0": "20.1.3-based-macos-universal.7z",
+                "21.0": "21.1.2-based-macos-universal.7z",
+                "22.0": "22.1.2-based-macos-universal.7z",
+            }
+            return known_good.get(major_minor_version_str)
 
         clang_version = get_clang_version()
         if clang_version:
