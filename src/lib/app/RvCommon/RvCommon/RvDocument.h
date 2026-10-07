@@ -27,9 +27,17 @@ namespace TwkApp
     class Menu;
 }
 
+namespace TwkGLF
+{
+    class GLVideoDevice;
+}
+
 namespace Rv
 {
     class GLView;
+#if defined(PLATFORM_LINUX) || defined(PLATFORM_WINDOWS)
+    class VulkanView;
+#endif
     class DiagnosticsView;
     class DesktopVideoModule;
     class DesktopVideoDevice;
@@ -72,6 +80,24 @@ namespace Rv
         QMenu* mainPopup() const { return m_mainPopup; }
 
         GLView* view() const;
+        QWidget* viewWidget() const;
+
+        //
+        //  Active presentation video device for whichever backend is in use
+        //  (the OpenGL GLView or, on Linux, the Vulkan VulkanView). Returns
+        //  nullptr if no view has been created yet. Prefer this over
+        //  view()->videoDevice() in backend-neutral code so the Vulkan/Metal
+        //  paths (where view() is null) stay crash-safe.
+        //
+        TwkGLF::GLVideoDevice* viewVideoDevice() const;
+
+#if defined(PLATFORM_LINUX) || defined(PLATFORM_WINDOWS)
+        // True once close has been accepted or the document is being destroyed.
+        bool isClosing() const { return m_currentlyClosing || m_closeEventReceived; }
+
+        // Replace a live VulkanView with GLView after a runtime Vulkan failure.
+        void fallbackVulkanToGLView();
+#endif
 
         const QAction* lastPopupAction() const { return m_lastPopupAction; }
 
@@ -148,15 +174,26 @@ namespace Rv
         void mergeMenu(const TwkApp::Menu*, bool shortcuts = true);
         void convert(QMenu*, const TwkApp::Menu*, bool shortcuts);
 
+        // Position the UI blocking overlay over the main window's client area.
+        // The overlay is a frameless top-level window (not a child widget) so
+        // it can cover the native GL viewport window, which renders above
+        // sibling raster widgets and so cannot be dimmed by a child overlay.
+        void positionBlockingOverlay();
+
         void closeEvent(QCloseEvent*) override;
         void changeEvent(QEvent*) override;
         bool event(QEvent*) override;
         void moveEvent(QMoveEvent*) override;
+        void showEvent(QShowEvent*) override;
         void resizeEvent(QResizeEvent*) override;
 
         void setBuildMenu();
 
         void rebuildGLView(bool stereo, bool vsync, bool dbl, int, int, int, int);
+
+        void setActiveViewContentSize(int w, int h);
+        void setActiveViewMinimumContentSize(int w, int h);
+        bool activeViewFirstPaintCompleted() const;
 
     private:
         RvSession* m_session;
@@ -168,6 +205,10 @@ namespace Rv
         QDockWidget* m_diagnosticsDock;
         GLView* m_glView;
         GLView* m_oldGLView;
+#if defined(PLATFORM_LINUX) || defined(PLATFORM_WINDOWS)
+        VulkanView* m_vulkanView{nullptr};
+#endif
+        QWidget* m_viewWidget{nullptr};
         QWidget* m_viewContainerWidget;
         RvTopViewToolBar* m_topViewToolBar;
         RvBottomViewToolBar* m_bottomViewToolBar;
@@ -187,6 +228,7 @@ namespace Rv
         bool m_currentlyClosing;
         bool m_closeEventReceived;
         bool m_vsyncDisabled;
+        bool m_hdpiResizeWorkaroundDone;
         RvSourceEditor* m_sourceEditor;
         DisplayLink* m_displayLink;
         QWidget* m_blockingOverlay;

@@ -193,11 +193,6 @@ IF(FALSE)
   LIST(APPEND RV_FFMPEG_COMMON_CONFIG_OPTIONS "--disable-stripping")
 ENDIF()
 
-# Controls the EXTERNALPROJECT_ADD/BUILD_ALWAYS option
-SET(${_force_rebuild}
-    FALSE
-)
-
 IF(RV_TARGET_APPLE_ARM64)
   SET(RV_FFMPEG_USE_VIDEOTOOLBOX_DEFAULT_VALUE
       ON
@@ -213,6 +208,8 @@ OPTION(RV_FFMPEG_USE_VIDEOTOOLBOX "FFmpeg laveraging the VideoToolbox framework"
 # Make a list of the Open RV's FFmpeg config options unless already customized. Note that a super project, a project consuming Open RV as a submodule, can
 # customize the FFmpeg config options via the RV_FFMPEG_CONFIG_OPTIONS cmake property.
 IF(NOT RV_FFMPEG_CONFIG_OPTIONS)
+  # Non-free decoders are intentionally enabled in this build. Upstream's FFmpeg 8 workarounds that also disable prores_raw, ac3_fixed and eac3 are not needed
+  # here: they only exist to paper over link errors caused by disabling the prores and ac3 decoders, which we keep enabled.
   SET(NON_FREE_DECODERS_TO_DISABLE)
 
   FOREACH(
@@ -249,16 +246,6 @@ IF(NOT RV_FFMPEG_CONFIG_OPTIONS)
   SET(RV_FFMPEG_CONFIG_OPTIONS
       ${_disabled_decoders} ${_disabled_encoders} ${_disabled_filters} ${_disabled_parsers} ${_disabled_protocols}
   )
-
-  IF(NOT RV_FFMPEG_CONFIG_OPTIONS STREQUAL RV_FFMPEG_CONFIG_OPTIONS_CACHE)
-    SET(${_force_rebuild}
-        TRUE
-    )
-    SET(RV_FFMPEG_CONFIG_OPTIONS_CACHE
-        ${RV_FFMPEG_CONFIG_OPTIONS}
-        CACHE STRING "FFmpeg config options" FORCE
-    )
-  ENDIF()
 ENDIF()
 
 LIST(REMOVE_DUPLICATES RV_FFMPEG_DEPENDS)
@@ -321,7 +308,6 @@ EXTERNALPROJECT_ADD(
   BUILD_COMMAND ${_make_command} -j${_cpu_count}
   INSTALL_COMMAND ${_make_command} install
   BUILD_IN_SOURCE TRUE
-  BUILD_ALWAYS ${_force_rebuild}
   BUILD_BYPRODUCTS ${_build_byproducts}
   USES_TERMINAL_BUILD TRUE
 )
